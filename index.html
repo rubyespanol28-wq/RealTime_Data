@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arduino Real-Time Data Collection & Logging</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F1B2B; --panel:#152941; --panel2:#1B3350;
+    --ink:#EAF2F5; --ink-dim:#93A9BD;
+    --wire:#38BDF8; --led:#4ADE80; --warn:#F5A15C; --bad:#F2607A;
+    --line: rgba(234,242,245,0.14);
+    --code-bg:#0A141F;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  :root[data-theme="dark"]{ --bg:#0F1B2B; }
+  html{scroll-padding-top:76px;}
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; line-height:1.6; }
+  .wrap{ max-width:900px; margin:0 auto; padding: 0 6vw 100px; }
+  header.top{
+    position:sticky; top:0; z-index:10; background:rgba(15,27,43,0.92); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line); padding: calc(env(safe-area-inset-top,0px) + 14px) 6vw 14px;
+  }
+  header.top .tt{ font-family:'JetBrains Mono',monospace; font-size:0.85rem; color:var(--wire); font-weight:600; }
+  nav.toc{ display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; }
+  nav.toc a{ font-size:0.8rem; color:var(--ink-dim); text-decoration:none; font-family:'JetBrains Mono',monospace; }
+  nav.toc a:hover{ color:var(--led); }
+  .hero{ padding:40px 0 10px; }
+  .hero .eyebrow{ font-family:'JetBrains Mono',monospace; color:var(--wire); font-size:0.85rem; margin-bottom:10px; }
+  h1{ font-size:clamp(1.8rem,5vw,2.6rem); margin:0 0 12px; font-weight:800; }
+  h2{ font-size:1.5rem; font-weight:700; margin:48px 0 14px; padding-top:14px; border-top:1px solid var(--line); }
+  h2 .num{ color:var(--led); font-family:'JetBrains Mono',monospace; margin-right:8px; }
+  h3{ font-size:1.1rem; font-weight:700; margin:22px 0 10px; color:var(--ink); }
+  p{ color:var(--ink-dim); margin:0 0 14px; max-width:68ch; }
+  ul.pts, ol.pts{ margin:0 0 14px; padding-left:0; list-style:none; }
+  ul.pts li{ position:relative; padding-left:24px; margin-bottom:10px; color:var(--ink); max-width:62ch; }
+  ul.pts li::before{ content:""; position:absolute; left:0; top:0.55em; width:8px; height:8px; border:2px solid var(--led); border-radius:50%; }
+  ol.pts{ counter-reset:step; }
+  ol.pts li{ position:relative; padding-left:30px; margin-bottom:10px; color:var(--ink); max-width:62ch; }
+  ol.pts li::before{ counter-increment:step; content:counter(step); position:absolute; left:0; top:0; width:20px; height:20px; border-radius:50%; background:var(--panel2); color:var(--led); font-family:'JetBrains Mono',monospace; font-size:0.7rem; display:flex; align-items:center; justify-content:center; }
+  .code{ background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:16px 18px; font-family:'JetBrains Mono',monospace; font-size:0.85rem; color:#CDE7F0; overflow-x:auto; margin:10px 0 18px; white-space:pre; }
+  .code .c{ color:var(--ink-dim); } .code .k{ color:var(--wire); } .code .s{ color:var(--led); } .code .w{ color:var(--warn); }
+  .key{ border-left:3px solid var(--led); background:rgba(74,222,128,0.08); padding:12px 16px; border-radius:0 10px 10px 0; margin:16px 0; }
+  .key b{ color:var(--led); }
+  .warn{ border-left:3px solid var(--warn); background:rgba(245,161,92,0.08); padding:12px 16px; border-radius:0 10px 10px 0; margin:16px 0; }
+  .warn b{ color:var(--warn); }
+  table.ref{ border-collapse:collapse; width:100%; margin:10px 0 20px; font-size:0.92rem; }
+  table.ref th, table.ref td{ border:1px solid var(--line); padding:9px 12px; text-align:left; }
+  table.ref th{ background:var(--panel2); color:var(--wire); font-family:'JetBrains Mono',monospace; font-size:0.78rem; }
+  table.ref td{ color:var(--ink-dim); }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:640px){ .grid2{ grid-template-columns:1fr; } }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 18px; }
+  .card .n{ font-family:'JetBrains Mono',monospace; color:var(--led); font-size:0.78rem; margin-bottom:6px; }
+
+  /* Activity widgets */
+  .activity{ background:var(--panel); border:1px solid var(--wire); border-radius:12px; padding:20px 22px; margin:18px 0 26px; }
+  .activity .tag{ font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--wire); margin-bottom:10px; letter-spacing:0.04em; }
+  .q{ margin-bottom:18px; }
+  .q p.prompt{ color:var(--ink); font-weight:600; margin-bottom:10px; }
+  .opts{ display:flex; flex-direction:column; gap:8px; }
+  .opt{ text-align:left; background:var(--code-bg); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:10px 14px; cursor:pointer; font-family:'Inter',sans-serif; font-size:0.95rem; }
+  .opt:hover{ border-color:var(--wire); }
+  .opt.correct{ border-color:var(--led); background:rgba(74,222,128,0.12); color:var(--led); }
+  .opt.wrong{ border-color:var(--bad); background:rgba(242,96,122,0.12); color:var(--bad); }
+  .fb{ margin-top:8px; font-size:0.88rem; color:var(--ink-dim); display:none; }
+  .fb.show{ display:block; }
+
+  .blankcode{ background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:16px 18px; font-family:'JetBrains Mono',monospace; font-size:0.85rem; color:#CDE7F0; line-height:2; white-space:pre-wrap; }
+  .blank{ display:inline-block; width:70px; background:var(--panel2); border:1px solid var(--wire); border-radius:4px; color:var(--led); font-family:'JetBrains Mono',monospace; font-size:0.85rem; padding:2px 6px; text-align:center; }
+  .checkbtn{ margin-top:14px; background:var(--led); color:#0A141F; border:none; font-weight:700; border-radius:8px; padding:10px 20px; font-family:'Inter',sans-serif; font-size:0.9rem; cursor:pointer; }
+  .checkbtn:hover{ filter:brightness(1.08); }
+  .result{ margin-top:10px; font-size:0.88rem; font-weight:600; display:none; }
+  .result.show{ display:block; }
+
+  footer{ text-align:center; color:var(--ink-dim); font-size:0.8rem; padding:30px 0 10px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="tt">📡 ARDUINO · GRADE 10 · WEEK 5–6</div>
+  <nav class="toc">
+    <a href="#collection">1. Collection</a>
+    <a href="#logging">2. Logging</a>
+    <a href="#vocab">3. Vocabulary</a>
+    <a href="#quiz">4. Quiz</a>
+    <a href="#fillblank">5. Code Challenge</a>
+    <a href="#tryit">6. Try This</a>
+  </nav>
+</header>
+
+<div class="wrap">
+
+  <section class="hero">
+    <div class="eyebrow">COMPLETE STUDENT HANDOUT</div>
+    <h1>Real-Time Data Collection & Logging with Arduino</h1>
+    <p>From reading a single sensor value, to continuously tracking it live, to sending it somewhere it survives. This handout covers every core concept, with worked examples and two interactive checks for understanding.</p>
+  </section>
+
+  <h2 id="collection"><span class="num">01</span>Real-Time Data Collection</h2>
+
+  <h3>What "real-time" means here</h3>
+  <p>Real-time data collection means your program keeps reading a sensor continuously, close to the moment each value happens, instead of reading once and stopping. On Arduino this means the sensor read has to repeat forever inside <code>loop()</code> — but it can't freeze anything else while it waits.</p>
+
+  <h3>Why delay() breaks real-time behavior</h3>
+  <p><code>delay(ms)</code> pauses the <em>entire</em> program — no other code runs until it's done. That's fine for a single blinking LED, but the moment you need to also watch for a second sensor, update a display, or talk to WiFi, a blocking delay becomes a bug.</p>
+  <div class="code"><span class="c">// BLOCKING — nothing else can happen during delay()</span>
+<span class="k">void</span> loop() {
+  <span class="k">int</span> value = analogRead(A0);
+  Serial.println(value);
+  delay(2000);  <span class="c">// the whole board is frozen for 2 full seconds</span>
+}</div>
+
+  <h3>The non-blocking pattern: millis()</h3>
+  <p><code>millis()</code> returns the number of milliseconds since the board powered on — and it keeps counting in the background, no matter what else your code is doing. Comparing it against a saved "last time" value lets you time events without ever freezing the program.</p>
+  <div class="code"><span class="c">// NON-BLOCKING — loop() keeps running every cycle</span>
+<span class="k">unsigned long</span> lastRead = 0;
+<span class="k">const long</span> interval = 2000;
+
+<span class="k">void</span> loop() {
+  <span class="k">if</span> (millis() - lastRead >= interval) {
+    <span class="k">int</span> value = analogRead(A0);
+    Serial.println(value);
+    lastRead = millis();   <span class="c">// reset the clock</span>
+  }
+  <span class="c">// anything else written here still runs every single cycle</span>
+}</div>
+  <div class="key"><b>Key idea:</b> <code>delay()</code> stops time for your whole program. <code>millis()</code> just checks a clock that never stops — so your program stays responsive.</div>
+
+  <h3>Storing live data: the rolling buffer</h3>
+  <p>A single variable only remembers the most recent reading. To track a short history — for a running average, a trend, or a graph — collection uses a fixed-size array as a <strong>rolling buffer</strong>: new values overwrite the oldest ones, using the modulo operator (<code>%</code>) to wrap the index back to 0.</p>
+  <div class="code"><span class="k">float</span> readings[10];   <span class="c">// holds the last 10 values</span>
+<span class="k">int</span> idx = 0;
+
+readings[idx % 10] = newValue;  <span class="c">// box 0..9, then wraps back to 0</span>
+idx++;</div>
+
+  <h3>Turning the buffer into information</h3>
+  <p>A loop over the buffer — the same traverse-and-accumulate pattern from earlier lessons — produces a rolling average, a running max, or any other live statistic:</p>
+  <div class="code"><span class="k">float</span> sum = 0;
+<span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; 10; i++) {
+  sum += readings[i];
+}
+<span class="k">float</span> average = sum / 10;</div>
+
+  <h2 id="logging"><span class="num">02</span>Real-Time Data Logging</h2>
+
+  <h3>Collection vs. logging — not the same job</h3>
+  <p><strong>Collection</strong> keeps data local and current. <strong>Logging</strong> sends that data somewhere it will survive after the board loses power or moves out of range — a cloud dashboard, an SD card, or a database — so it can be reviewed later or viewed remotely.</p>
+
+  <h3>Logging to the cloud: ThingSpeak</h3>
+  <p>ThingSpeak is a free IoT dashboard. Each "channel" accepts numeric values over WiFi and plots them automatically. The board needs a <strong>Write API Key</strong> to identify which channel it's sending to.</p>
+  <div class="warn"><b>Rate limit:</b> ThingSpeak's free tier accepts a new point <strong>no faster than once every 15 seconds</strong>. A sensor sampled every 2 seconds cannot log every reading — only a periodic summary of them.</div>
+
+  <h3>Two timers, one shared array</h3>
+  <p>Because sampling and transmission run at different speeds, a logging sketch needs two independent <code>millis()</code> timers inside the same <code>loop()</code> — one fast (collection), one slow (logging) — both reading from the same buffer.</p>
+  <div class="code"><span class="k">#include</span> &lt;ESP8266WiFi.h&gt;
+<span class="k">#include</span> &lt;ThingSpeak.h&gt;
+
+WiFiClient client;
+<span class="k">unsigned long</span> channelID = YOUR_CHANNEL_ID;
+<span class="k">const char</span>* apiKey = <span class="s">"YOUR_WRITE_KEY"</span>;
+
+<span class="k">float</span> readings[10];
+<span class="k">int</span> idx = 0;
+<span class="k">unsigned long</span> lastCollect = 0, lastLog = 0;
+<span class="k">const long</span> collectInterval = 2000;   <span class="c">// fast: local</span>
+<span class="k">const long</span> logInterval     = 15000;  <span class="c">// slow: cloud minimum</span>
+
+<span class="k">void</span> loop() {
+  <span class="k">if</span> (millis() - lastCollect >= collectInterval) {
+    readings[idx % 10] = analogRead(A0) * (3.3/1023.0);
+    idx++;
+    lastCollect = millis();
+  }
+
+  <span class="k">if</span> (millis() - lastLog >= logInterval) {
+    <span class="k">float</span> sum = 0;
+    <span class="k">for</span> (<span class="k">int</span> i=0; i&lt;10; i++) sum += readings[i];
+    ThingSpeak.setField(1, sum / 10);
+    ThingSpeak.writeFields(channelID, apiKey);
+    lastLog = millis();
+  }
+}</div>
+
+  <h3>Alternative: logging to an SD card</h3>
+  <p>When WiFi isn't available or reliable, the same pattern logs to a local file instead — useful for field data collection with no network at all.</p>
+  <div class="code"><span class="k">#include</span> &lt;SD.h&gt;
+File logFile;
+
+<span class="k">if</span> (millis() - lastLog >= logInterval) {
+  logFile = SD.open(<span class="s">"log.csv"</span>, FILE_WRITE);
+  <span class="k">if</span> (logFile) {
+    logFile.print(millis()); logFile.print(<span class="s">","</span>);
+    logFile.println(average);
+    logFile.close();
+  }
+  lastLog = millis();
+}</div>
+
+  <h2 id="vocab"><span class="num">03</span>Key Vocabulary</h2>
+  <table class="ref">
+    <tr><th>Term</th><th>Meaning</th></tr>
+    <tr><td>Real-time</td><td>Data is processed continuously, close to the moment it's generated.</td></tr>
+    <tr><td>Blocking code</td><td>Code (like <code>delay()</code>) that freezes the whole program until it finishes.</td></tr>
+    <tr><td><code>millis()</code></td><td>Built-in timer counting milliseconds since the board started; never blocks.</td></tr>
+    <tr><td>Rolling buffer</td><td>A fixed-size array where new values overwrite the oldest ones.</td></tr>
+    <tr><td>Sampling rate</td><td>How often a sensor is read (collection speed).</td></tr>
+    <tr><td>Transmission rate</td><td>How often collected data is actually sent/logged externally.</td></tr>
+    <tr><td>API key</td><td>A private code authorizing a device to send data to a specific channel.</td></tr>
+  </table>
+
+  <h2 id="quiz"><span class="num">04</span>Interactive Quiz</h2>
+  <div class="activity">
+    <div class="tag">CHECK YOUR UNDERSTANDING · 4 QUESTIONS</div>
+
+    <div class="q" data-answer="1">
+      <p class="prompt">1. Why do we avoid delay() once a sketch needs WiFi or multiple sensors?</p>
+      <div class="opts">
+        <button class="opt" data-i="0">It uses too much memory</button>
+        <button class="opt" data-i="1">It freezes the entire program while it waits</button>
+        <button class="opt" data-i="2">It only works with analog pins</button>
+      </div>
+      <div class="fb"></div>
+    </div>
+
+    <div class="q" data-answer="2">
+      <p class="prompt">2. In <code>readings[idx % 10]</code>, what does <code>% 10</code> actually do?</p>
+      <div class="opts">
+        <button class="opt" data-i="0">Converts the value to a percentage</button>
+        <button class="opt" data-i="1">Limits the array to 10% of its size</button>
+        <button class="opt" data-i="2">Wraps the index back to 0 after it reaches 9</button>
+      </div>
+      <div class="fb"></div>
+    </div>
+
+    <div class="q" data-answer="0">
+      <p class="prompt">3. collectInterval = 2000 and logInterval = 15000. Roughly how many collections happen per log?</p>
+      <div class="opts">
+        <button class="opt" data-i="0">About 7</button>
+        <button class="opt" data-i="1">About 2</button>
+        <button class="opt" data-i="2">About 15</button>
+      </div>
+      <div class="fb"></div>
+    </div>
+
+    <div class="q" data-answer="2">
+      <p class="prompt">4. Why does a logging sketch need two separate millis() timers instead of one?</p>
+      <div class="opts">
+        <button class="opt" data-i="0">Arduino requires two timers for any WiFi code</button>
+        <button class="opt" data-i="1">It makes the code run faster overall</button>
+        <button class="opt" data-i="2">Collection and transmission need to happen at different speeds</button>
+      </div>
+      <div class="fb"></div>
+    </div>
+  </div>
+
+  <h2 id="fillblank"><span class="num">05</span>Code Challenge: Complete the Logger</h2>
+  <div class="activity">
+    <div class="tag">FILL IN THE BLANKS, THEN CHECK</div>
+    <p style="color:var(--ink-dim); margin-bottom:6px;">Complete the non-blocking collection loop below.</p>
+    <div class="blankcode">unsigned long lastRead = 0;
+const long interval = 2000;
+
+void loop() {
+  if (<input class="blank" data-ans="millis()" size="6"> - lastRead >= interval) {
+    int value = analogRead(A0);
+    Serial.println(value);
+    lastRead = <input class="blank" data-ans="millis()" size="6">;
+  }
+}</div>
+    <button class="checkbtn" id="checkBlanks">Check Answers</button>
+    <div class="result" id="blankResult"></div>
+  </div>
+
+  <h2 id="tryit"><span class="num">06</span>Try This</h2>
+  <ol class="pts">
+    <li>Rewrite a <code>delay()</code>-based sketch you've already written to use <code>millis()</code> instead.</li>
+    <li>Add a second, slower timer that prints <code>"LOGGED"</code> to Serial — before connecting to WiFi at all.</li>
+    <li>Change the rolling buffer size from 10 to 5, and update every place that depends on that size.</li>
+    <li>Predict, then test: what happens if <code>logInterval</code> is set lower than ThingSpeak's 15-second minimum?</li>
+    <li>Once WiFi logging works, confirm on your ThingSpeak channel that points never appear faster than every 15 seconds.</li>
+  </ol>
+
+  <footer>Grade 10 · Computer — Real-Time Data Collection & Logging</footer>
+</div>
+
+<script>
+  // Quiz logic
+  document.querySelectorAll('.q').forEach(q => {
+    const correct = q.dataset.answer;
+    const fb = q.querySelector('.fb');
+    q.querySelectorAll('.opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.classList.contains('correct') || btn.classList.contains('wrong')) return;
+        const isRight = btn.dataset.i === correct;
+        btn.classList.add(isRight ? 'correct' : 'wrong');
+        q.querySelectorAll('.opt').forEach(b => {
+          if (b.dataset.i === correct) b.classList.add('correct');
+          b.disabled = true;
+        });
+        fb.textContent = isRight
+          ? "Correct — that's exactly right."
+          : "Not quite — the highlighted option above is correct.";
+        fb.classList.add('show');
+      });
+    });
+  });
+
+  // Fill-in-the-blank checker
+  document.getElementById('checkBlanks').addEventListener('click', () => {
+    const blanks = document.querySelectorAll('.blank');
+    let allCorrect = true;
+    blanks.forEach(b => {
+      const val = b.value.trim().replace(/\s+/g,'');
+      const ans = b.dataset.ans.replace(/\s+/g,'');
+      if (val === ans) {
+        b.style.borderColor = 'var(--led)';
+        b.style.color = 'var(--led)';
+      } else {
+        b.style.borderColor = 'var(--bad)';
+        b.style.color = 'var(--bad)';
+        allCorrect = false;
+      }
+    });
+    const result = document.getElementById('blankResult');
+    result.textContent = allCorrect
+      ? "✓ All correct — millis() reads the clock in both places."
+      : "✗ One or more blanks need another look — check what resets the timer.";
+    result.style.color = allCorrect ? 'var(--led)' : 'var(--warn)';
+    result.classList.add('show');
+  });
+</script>
+</body>
+</html>
